@@ -92,8 +92,56 @@ const getHotelById = async (hotelId) => {
     return rows;
 };
 
+
+const getRoomAvailability = async (hotelId, checkIn, checkOut) => {
+
+    const [rows] = await pool.execute(
+        `SELECT
+            h.id AS hotel_id,
+            h.name AS hotel_name,
+            h.location,
+
+            r.id AS room_type_id,
+            r.room_name,
+            r.price_per_night,
+            r.total_rooms,
+
+            COUNT(b.id) AS booked_rooms,
+
+            r.total_rooms - COUNT(b.id) AS available_rooms
+
+        FROM hotels h
+
+        JOIN room_types r
+            ON h.id = r.hotel_id
+
+        LEFT JOIN bookings b
+            ON r.id = b.room_type_id
+            AND b.status = 'CONFIRMED'
+            AND b.check_in < ?
+            AND b.check_out > ?
+
+        WHERE h.id = ?
+
+        GROUP BY
+            h.id,
+            h.name,
+            h.location,
+            r.id,
+            r.room_name,
+            r.price_per_night,
+            r.total_rooms
+
+        ORDER BY r.id`,
+        [checkOut, checkIn, hotelId]
+    );
+
+    return rows;
+};
+
 module.exports = {
     getAllHotels,
     getHotelsByLocation,
-     getHotelById
+    getHotelById,
+    getRoomAvailability
 };

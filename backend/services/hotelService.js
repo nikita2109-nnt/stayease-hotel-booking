@@ -21,8 +21,22 @@ const getHotelById = async (hotelId) => {
 
     return hotels;
 };
+
+
+const getRoomAvailability = async (hotelId, checkIn, checkOut) => {
+
+    const availability = await hotelModel.getRoomAvailability(
+        hotelId,
+        checkIn,
+        checkOut
+    );
+
+    return availability;
+};
+
 module.exports = {
     getAllHotels,
     getHotelsByLocation,
-    getHotelById
+    getHotelById,
+    getRoomAvailability
 };
