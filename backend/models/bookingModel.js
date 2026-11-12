@@ -129,8 +129,85 @@ const getBookingByReference = async (
 };
 
 
+// Find a booking and lock its row during cancellation
+const getBookingForCancellation = async (
+  connection,
+  bookingReference,
+  customerEmail
+) => {
+  const [rows] = await connection.execute(
+    `SELECT
+  id,
+  booking_reference,
+  status,
+  DATE_FORMAT(check_in, '%Y-%m-%d') AS check_in,
+  coupon_id
+     FROM bookings
+     WHERE booking_reference = ?
+       AND LOWER(customer_email) = LOWER(?)
+     LIMIT 1
+     FOR UPDATE`,
+    [bookingReference, customerEmail]
+  );
+
+  return rows.length > 0 ? rows[0] : null;
+};
+
+// Update booking status to CANCELLED
+const cancelBooking = async (connection, bookingId) => {
+  await connection.execute(
+    `UPDATE bookings
+     SET status = 'CANCELLED'
+     WHERE id = ?`,
+    [bookingId]
+  );
+};
+
+
+const releaseCouponUsage = async (connection, bookingId) => {
+  // Check whether this booking has a redeemed coupon
+  const [usageRows] = await connection.execute(
+    `SELECT coupon_id
+     FROM coupon_usages
+     WHERE booking_id = ?
+       AND status = 'REDEEMED'
+     LIMIT 1
+     FOR UPDATE`,
+    [bookingId]
+  );
+
+  // No coupon was used, so nothing needs to be restored
+  if (usageRows.length === 0) {
+    return;
+  }
+
+  const couponId = usageRows[0].coupon_id;
+
+  // Restore one coupon usage
+  await connection.execute(
+    `UPDATE coupons
+     SET usage_count = GREATEST(usage_count - 1, 0)
+     WHERE id = ?`,
+    [couponId]
+  );
+
+  // Preserve history by marking the usage as RELEASED
+  await connection.execute(
+    `UPDATE coupon_usages
+     SET status = 'RELEASED',
+         released_at = CURRENT_TIMESTAMP
+     WHERE booking_id = ?
+       AND status = 'REDEEMED'`,
+    [bookingId]
+  );
+};
+
+
 module.exports = {
   createBooking,
   checkRoomAvailability,
-  getBookingByReference
+  getBookingByReference,
+  getBookingForCancellation,
+  cancelBooking,
+  releaseCouponUsage
 };

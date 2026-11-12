@@ -199,7 +199,80 @@ const getBookingByReference = async (req, res) => {
 };
 
 
+const cancelBooking = async (req, res) => {
+  try {
+    const { bookingReference, customerEmail } = req.body;
+
+    // Validate booking reference
+    if (
+      typeof bookingReference !== "string" ||
+      bookingReference.trim().length === 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Booking reference is required"
+      });
+    }
+
+    // Validate email
+    if (
+      typeof customerEmail !== "string" ||
+      !isValidEmail(customerEmail.trim())
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid customer email is required"
+      });
+    }
+
+    const result = await bookingService.cancelBooking(
+      bookingReference.trim(),
+      customerEmail.trim()
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Booking cancelled successfully",
+      data: result
+    });
+
+  } catch (error) {
+    console.error("Booking Cancellation Error:", error.message);
+
+    if (error.message === "Booking not found") {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found. Please check your reference and email."
+      });
+    }
+
+    if (error.message === "Booking is not confirmed") {
+      return res.status(409).json({
+        success: false,
+        message: "This booking is already cancelled or cannot be cancelled."
+      });
+    }
+
+    if (
+      error.message ===
+      "Cancellation is not allowed on or after check-in date"
+    ) {
+      return res.status(409).json({
+        success: false,
+        message: error.message
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while cancelling the booking"
+    });
+  }
+};
+
+
 module.exports = {
   createBooking,
-  getBookingByReference
+  getBookingByReference,
+  cancelBooking
 };

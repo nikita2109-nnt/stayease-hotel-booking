@@ -143,7 +143,77 @@ const getBookingByReference = async (
   return booking;
 };
 
+
+const cancelBooking = async (bookingReference, customerEmail) => {
+  const connection = await pool.getConnection();
+  let transactionStarted = false;
+
+  try {
+    await connection.beginTransaction();
+    transactionStarted = true;
+
+    // Find and lock the booking
+    const booking = await bookingModel.getBookingForCancellation(
+      connection,
+      bookingReference,
+      customerEmail
+    );
+
+    if (!booking) {
+      throw new Error("Booking not found");
+    }
+
+    // Only confirmed bookings can be cancelled
+    if (booking.status !== "CONFIRMED") {
+      throw new Error("Booking is not confirmed");
+    }
+
+    // Get today's date in Indian Standard Time
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).format(new Date());
+
+    // Cancellation is not allowed on or after check-in
+    if (booking.check_in <= today) {
+      throw new Error("Cancellation is not allowed on or after check-in date");
+    }
+
+    // Cancel the booking
+    await bookingModel.cancelBooking(connection, booking.id);
+
+    // Restore coupon usage, if a coupon was used
+    await bookingModel.releaseCouponUsage(connection, booking.id);
+
+    await connection.commit();
+    transactionStarted = false;
+
+    return {
+      bookingReference: booking.booking_reference,
+      status: "CANCELLED"
+    };
+
+  } catch (error) {
+    if (transactionStarted) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        console.error("Rollback Error:", rollbackError.message);
+      }
+    }
+
+    throw error;
+
+  } finally {
+    connection.release();
+  }
+};
+
+
 module.exports = {
   createBooking,
-   getBookingByReference
+  getBookingByReference,
+  cancelBooking
 };

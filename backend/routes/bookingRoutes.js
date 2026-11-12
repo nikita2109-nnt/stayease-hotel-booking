@@ -8,4 +8,7 @@ const bookingController = require("../controllers/bookingController");
 router.post("/", bookingController.createBooking);
 // Retrieve booking using reference and email
 router.post("/lookup", bookingController.getBookingByReference); 
+
+router.post("/cancel", bookingController.cancelBooking);
+
 module.exports = router;
