@@ -91,7 +91,46 @@ const createBooking = async (connection, bookingData) => {
   return result.insertId;
 };
 
+
+const getBookingByReference = async (
+  bookingReference,
+  customerEmail
+) => {
+  const [rows] = await pool.execute(
+    `SELECT
+        b.id AS booking_id,
+        b.booking_reference,
+        b.customer_name,
+        b.customer_email,
+        b.check_in,
+        b.check_out,
+        b.total_nights,
+        b.subtotal,
+        b.discount_amount,
+        b.final_amount,
+        b.status,
+        b.created_at,
+        h.name AS hotel_name,
+        h.location,
+        r.room_name,
+        r.price_per_night
+     FROM bookings b
+     JOIN room_types r
+       ON b.room_type_id = r.id
+     JOIN hotels h
+       ON r.hotel_id = h.id
+     WHERE b.booking_reference = ?
+       AND LOWER(b.customer_email) = LOWER(?)
+     LIMIT 1`,
+    [bookingReference, customerEmail]
+  );
+
+  return rows.length > 0 ? rows[0] : null;
+};
+
+
 module.exports = {
   createBooking,
-  checkRoomAvailability
+  checkRoomAvailability,
+  getBookingByReference
 };

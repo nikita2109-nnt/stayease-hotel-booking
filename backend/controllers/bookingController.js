@@ -142,6 +142,64 @@ const createBooking = async (req, res) => {
   }
 };
 
+
+const getBookingByReference = async (req, res) => {
+  try {
+    const { bookingReference, customerEmail } = req.body;
+
+    // Validate booking reference
+    if (
+      typeof bookingReference !== "string" ||
+      bookingReference.trim().length === 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Booking reference is required"
+      });
+    }
+
+    // Validate customer email
+    if (
+      typeof customerEmail !== "string" ||
+      !isValidEmail(customerEmail.trim())
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid customer email is required"
+      });
+    }
+
+    // Call booking service
+    const booking = await bookingService.getBookingByReference(
+      bookingReference.trim(),
+      customerEmail.trim()
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Booking retrieved successfully",
+      data: booking
+    });
+
+  } catch (error) {
+    console.error("Booking Lookup Error:", error.message);
+
+    if (error.message === "Booking not found") {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found. Please check your reference and email."
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while retrieving booking"
+    });
+  }
+};
+
+
 module.exports = {
-  createBooking
+  createBooking,
+  getBookingByReference
 };

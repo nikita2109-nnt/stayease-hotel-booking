@@ -125,6 +125,25 @@ const createBooking = async (bookingData) => {
   }
 };
 
+
+const getBookingByReference = async (
+  bookingReference,
+  customerEmail
+) => {
+  const booking = await bookingModel.getBookingByReference(
+    bookingReference,
+    customerEmail
+  );
+
+  // Check whether booking exists
+  if (!booking) {
+    throw new Error("Booking not found");
+  }
+
+  return booking;
+};
+
 module.exports = {
-  createBooking
+  createBooking,
+   getBookingByReference
 };
