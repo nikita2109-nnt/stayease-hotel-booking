@@ -13,6 +13,8 @@ const hotelRoutes = require("./routes/hotelRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
 
 const adminRoutes = require("./routes/adminRoutes");
+
+const couponRoutes = require("./routes/couponRoutes");
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -47,6 +49,7 @@ app.get("/api/test-db", async (req, res) => {
 });
 app.use("/api/hotels", hotelRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/coupons", couponRoutes);
 // Start server
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

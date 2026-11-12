@@ -148,6 +148,28 @@ const deleteUnusedCoupon = async (couponId) => {
 };
 
 
+const getAvailableCoupons = async () => {
+  const [rows] = await pool.execute(
+    `SELECT
+       id,
+       code,
+       description,
+       discount_type,
+       discount_value,
+       max_discount,
+       min_booking_amount,
+       expiry_date
+     FROM coupons
+     WHERE is_active = TRUE
+       AND usage_count < usage_limit
+       AND start_date <= DATE_ADD(UTC_TIMESTAMP(), INTERVAL 330 MINUTE)
+       AND expiry_date >= DATE_ADD(UTC_TIMESTAMP(), INTERVAL 330 MINUTE)
+     ORDER BY created_at DESC`
+  );
+
+  return rows;
+};
+
 
 const getCouponForUpdate = async (connection, code) => {
   const [rows] = await connection.execute(
@@ -185,6 +207,7 @@ const getCouponForUpdate = async (connection, code) => {
 module.exports = {
   createCoupon,
   getAllCoupons,
+  getAllAvailableCoupons: getAvailableCoupons,
   getCouponById,
   updateCoupon,
   deactivateCoupon,
