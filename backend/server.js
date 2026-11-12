@@ -11,6 +11,8 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const hotelRoutes = require("./routes/hotelRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
+
+const adminRoutes = require("./routes/adminRoutes");
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -44,6 +46,7 @@ app.get("/api/test-db", async (req, res) => {
     }
 });
 app.use("/api/hotels", hotelRoutes);
+app.use("/api/admin", adminRoutes);
 // Start server
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
