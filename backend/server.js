@@ -10,9 +10,11 @@ const app = express();
 
 const PORT = process.env.PORT || 5000;
 const hotelRoutes = require("./routes/hotelRoutes");
+const bookingRoutes = require("./routes/bookingRoutes");
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use("/api/bookings", bookingRoutes);
 
 // Home API
 app.get("/", (req, res) => {
