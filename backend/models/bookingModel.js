@@ -45,6 +45,7 @@ const checkRoomAvailability = async (
 };
 
 
+
 const createBooking = async (connection, bookingData) => {
   const {
     bookingReference,
@@ -55,6 +56,10 @@ const createBooking = async (connection, bookingData) => {
     checkOut,
     totalNights,
     subtotal,
+    couponId,
+    couponCodeSnapshot,
+    discountTypeSnapshot,
+    discountValueSnapshot,
     discountAmount,
     finalAmount
   } = bookingData;
@@ -69,11 +74,15 @@ const createBooking = async (connection, bookingData) => {
       check_out,
       total_nights,
       subtotal,
+      coupon_id,
+      coupon_code_snapshot,
+      discount_type_snapshot,
+      discount_value_snapshot,
       discount_amount,
       final_amount,
       status
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'CONFIRMED')`,
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'CONFIRMED')`,
     [
       bookingReference,
       roomTypeId,
@@ -83,6 +92,10 @@ const createBooking = async (connection, bookingData) => {
       checkOut,
       totalNights,
       subtotal,
+      couponId ?? null,
+      couponCodeSnapshot ?? null,
+      discountTypeSnapshot ?? null,
+      discountValueSnapshot ?? null,
       discountAmount,
       finalAmount
     ]
@@ -203,11 +216,40 @@ const releaseCouponUsage = async (connection, bookingId) => {
 };
 
 
+const incrementCouponUsage = async (connection, couponId) => {
+  const [result] = await connection.execute(
+    `UPDATE coupons
+     SET usage_count = usage_count + 1
+     WHERE id = ?
+       AND is_active = TRUE
+       AND usage_count < usage_limit`,
+    [couponId]
+  );
+
+  if (result.affectedRows !== 1) {
+    throw new Error("Coupon usage limit reached");
+  }
+};
+
+const createCouponUsage = async (connection, couponId, bookingId) => {
+  await connection.execute(
+    `INSERT INTO coupon_usages (
+      coupon_id,
+      booking_id,
+      status
+    )
+    VALUES (?, ?, 'REDEEMED')`,
+    [couponId, bookingId]
+  );
+};
+
 module.exports = {
   createBooking,
   checkRoomAvailability,
   getBookingByReference,
   getBookingForCancellation,
   cancelBooking,
-  releaseCouponUsage
+  releaseCouponUsage,
+  createCouponUsage,
+  incrementCouponUsage
 };

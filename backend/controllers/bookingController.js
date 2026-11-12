@@ -23,6 +23,7 @@ const isValidEmail = (email) => {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 };
 
+
 // Create a new booking
 const createBooking = async (req, res) => {
   try {
@@ -31,7 +32,8 @@ const createBooking = async (req, res) => {
       customerName,
       customerEmail,
       checkIn,
-      checkOut
+      checkOut,
+      couponCode
     } = req.body;
 
     // 1. Validate room type ID
@@ -96,16 +98,39 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // 7. Call booking service
+    // 7. Validate optional coupon code
+    if (
+      couponCode !== undefined &&
+      couponCode !== null &&
+      typeof couponCode !== "string"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid coupon code"
+      });
+    }
+
+    if (
+      typeof couponCode === "string" &&
+      couponCode.trim().length > 50
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Coupon code cannot exceed 50 characters"
+      });
+    }
+
+    // 8. Call booking service
     const booking = await bookingService.createBooking({
       roomTypeId: Number(roomTypeId),
       customerName: customerName.trim(),
       customerEmail: customerEmail.trim(),
       checkIn,
-      checkOut
+      checkOut,
+      couponCode: couponCode?.trim() || null
     });
 
-    // 8. Send success response
+    // 9. Send success response
     return res.status(201).json({
       success: true,
       message: "Booking created successfully",
@@ -125,9 +150,38 @@ const createBooking = async (req, res) => {
 
     // No rooms available
     if (
-      error.message ===
-      "No rooms available for selected dates"
+      error.message === "No rooms available for selected dates"
     ) {
+      return res.status(409).json({
+        success: false,
+        message: error.message
+      });
+    }
+
+    // Coupon validation errors
+    const couponErrors = [
+      "Invalid coupon code",
+      "Coupon is inactive",
+      "Coupon is not active yet",
+      "Coupon has expired",
+      "Minimum booking amount is",
+      "Invalid coupon dates",
+      "Invalid booking amount"
+    ];
+
+    if (
+      couponErrors.some((message) =>
+        error.message.startsWith(message)
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+
+    // Coupon usage limit reached
+    if (error.message === "Coupon usage limit reached") {
       return res.status(409).json({
         success: false,
         message: error.message
@@ -143,6 +197,7 @@ const createBooking = async (req, res) => {
 };
 
 
+// Retrieve booking using reference and email
 const getBookingByReference = async (req, res) => {
   try {
     const { bookingReference, customerEmail } = req.body;
@@ -199,6 +254,7 @@ const getBookingByReference = async (req, res) => {
 };
 
 
+// Cancel an existing booking
 const cancelBooking = async (req, res) => {
   try {
     const { bookingReference, customerEmail } = req.body;

@@ -2,7 +2,7 @@
 const pool = require("../config/db");
 const bookingModel = require("../models/bookingModel");
 const { randomUUID } = require("crypto");
-
+const couponService = require("./couponService");
 // Generate unique booking reference
 const generateBookingReference = () => {
   return "STAY-" + randomUUID()
@@ -11,74 +11,99 @@ const generateBookingReference = () => {
     .toUpperCase();
 };
 
+
 const createBooking = async (bookingData) => {
-  // Get a connection from the connection pool
   const connection = await pool.getConnection();
 
   let transactionStarted = false;
 
   try {
-    // Start transaction
     await connection.beginTransaction();
     transactionStarted = true;
 
     const {
       roomTypeId,
       checkIn,
-      checkOut
+      checkOut,
+      couponCode
     } = bookingData;
 
-    // Check room availability with row-level locking
-    const availability =
-      await bookingModel.checkRoomAvailability(
-        connection,
-        roomTypeId,
-        checkIn,
-        checkOut
-      );
+    // 1. Check room availability with row-level locking
+    const availability = await bookingModel.checkRoomAvailability(
+      connection,
+      roomTypeId,
+      checkIn,
+      checkOut
+    );
 
-    // Check whether room type exists
     if (!availability) {
       throw new Error("Room type not found");
     }
 
-    // Check whether rooms are available
     if (availability.availableRooms <= 0) {
-      throw new Error(
-        "No rooms available for selected dates"
-      );
+      throw new Error("No rooms available for selected dates");
     }
 
-    // Calculate total nights
+    // 2. Calculate total nights
     const totalNights = Math.round(
       (new Date(checkOut + "T00:00:00Z") -
        new Date(checkIn + "T00:00:00Z")) /
       (1000 * 60 * 60 * 24)
     );
 
-    // Get actual room price from database
-    const pricePerNight = Number(
-      availability.pricePerNight
-    );
+    // 3. Calculate booking subtotal
+    const pricePerNight = Number(availability.pricePerNight);
 
-    // Calculate subtotal
     const subtotal = Number(
       (pricePerNight * totalNights).toFixed(2)
     );
 
-    // No coupon applied for now
-    const discountAmount = 0;
+    // 4. Validate coupon, if provided
+    let couponDetails = null;
 
-    // Calculate final amount
-    const finalAmount = Number(
-      (subtotal - discountAmount).toFixed(2)
-    );
+    if (couponCode !== undefined && couponCode !== null) {
+      if (typeof couponCode !== "string") {
+        throw new Error("Invalid coupon code");
+      }
 
-    // Generate booking reference
-    const bookingReference =
-      generateBookingReference();
+      if (couponCode.trim().length > 0) {
+        couponDetails = await couponService.validateCoupon(
+          connection,
+          couponCode,
+          subtotal
+        );
+      }
+    }
 
-    // Insert booking
+    // 5. Calculate discount and final amount
+    const couponId = couponDetails
+      ? couponDetails.couponId
+      : null;
+
+    const couponCodeSnapshot = couponDetails
+      ? couponDetails.couponCode
+      : null;
+
+    const discountTypeSnapshot = couponDetails
+      ? couponDetails.discountType
+      : null;
+
+    const discountValueSnapshot = couponDetails
+      ? couponDetails.discountValue
+      : null;
+
+    const discountAmount = couponDetails
+      ? couponDetails.discountAmount
+      : 0;
+
+    const finalAmount = couponDetails
+      ? couponDetails.finalAmount
+      : subtotal;
+
+    // 6. Generate booking reference
+    const bookingReference = generateBookingReference();
+
+    // 7. Insert booking with coupon details
     const bookingId = await bookingModel.createBooking(
       connection,
       {
@@ -86,12 +111,30 @@ const createBooking = async (bookingData) => {
         bookingReference,
         totalNights,
         subtotal,
+        couponId,
+        couponCodeSnapshot,
+        discountTypeSnapshot,
+        discountValueSnapshot,
         discountAmount,
         finalAmount
       }
     );
 
-    // Commit transaction
+    // 8. Increase coupon usage and record redemption
+    if (couponDetails) {
+      await bookingModel.incrementCouponUsage(
+        connection,
+        couponId
+      );
+
+      await bookingModel.createCouponUsage(
+        connection,
+        couponId,
+        bookingId
+      );
+    }
+
+    // 9. Commit transaction
     await connection.commit();
     transactionStarted = false;
 
@@ -100,30 +143,27 @@ const createBooking = async (bookingData) => {
       bookingReference,
       totalNights,
       subtotal,
+      couponCode: couponCodeSnapshot,
       discountAmount,
       finalAmount
     };
 
   } catch (error) {
-    // Rollback if transaction has started
     if (transactionStarted) {
       try {
         await connection.rollback();
       } catch (rollbackError) {
-        console.error(
-          "Rollback Error:",
-          rollbackError.message
-        );
+        console.error("Rollback Error:", rollbackError.message);
       }
     }
 
     throw error;
 
   } finally {
-    // Always release connection
     connection.release();
   }
 };
+
 
 
 const getBookingByReference = async (
