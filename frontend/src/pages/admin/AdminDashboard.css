@@ -408,3 +408,28 @@
   }
 }
 
+
+.coupon-delete-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 12px;
+  background: #fff1f1;
+  color: #c03939;
+  border: 1px solid #f2d0d0;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.coupon-delete-button:hover:not(:disabled) {
+  background: #c03939;
+  color: white;
+}
+
+.coupon-delete-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

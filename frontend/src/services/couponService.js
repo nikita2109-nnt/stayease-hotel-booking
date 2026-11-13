@@ -18,3 +18,10 @@ export const createCoupon = async (couponData) => {
   const response = await api.post("/coupons", couponData);
   return response.data;
 };
+
+
+// Delete an unused coupon (Admin)
+export const deleteCoupon = async (couponId) => {
+  const response = await api.delete(`/coupons/${couponId}`);
+  return response.data;
+};

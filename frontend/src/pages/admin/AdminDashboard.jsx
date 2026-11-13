@@ -9,6 +9,7 @@ import {
   Plus,
   Users,
   LayoutDashboard,
+  Trash2,
 } from "lucide-react";
 
 import "./AdminDashboard.css";
@@ -16,6 +17,7 @@ import "./AdminDashboard.css";
 import {
   getAllCoupons,
   createCoupon,
+  deleteCoupon,
 } from "../../services/couponService";
 
 import CreateCouponForm from "./CreateCouponForm";
@@ -23,21 +25,17 @@ import CreateCouponForm from "./CreateCouponForm";
 function AdminDashboard() {
   const navigate = useNavigate();
 
-  // Coupon data
   const [coupons, setCoupons] = useState([]);
-
-  // Loading states
   const [loadingStats, setLoadingStats] = useState(true);
   const [creatingCoupon, setCreatingCoupon] = useState(false);
+  const [deletingCouponId, setDeletingCouponId] = useState(null);
 
-  // Form visibility
   const [showCouponForm, setShowCouponForm] = useState(false);
 
-  // Messages
   const [couponMessage, setCouponMessage] = useState("");
   const [couponError, setCouponError] = useState("");
 
-  // Fetch all coupons
+  // Fetch coupons
   const fetchCoupons = async () => {
     try {
       const response = await getAllCoupons();
@@ -76,7 +74,7 @@ function AdminDashboard() {
     navigate("/admin/login");
   };
 
-  // Open create coupon form
+  // Open coupon form
   const handleOpenCouponForm = () => {
     setCouponError("");
     setCouponMessage("");
@@ -104,7 +102,6 @@ function AdminDashboard() {
 
       await createCoupon(couponData);
 
-      // Refresh coupon list and statistics
       await fetchCoupons();
 
       setShowCouponForm(false);
@@ -117,6 +114,42 @@ function AdminDashboard() {
       );
     } finally {
       setCreatingCoupon(false);
+    }
+  };
+
+  // Delete coupon
+  const handleDeleteCoupon = async (coupon) => {
+    if (Number(coupon.usage_count) > 0) {
+      setCouponError("Used coupons cannot be deleted.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete coupon "${coupon.code}"?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setDeletingCouponId(coupon.id);
+      setCouponError("");
+      setCouponMessage("");
+
+      await deleteCoupon(coupon.id);
+
+      await fetchCoupons();
+
+      setCouponMessage(
+        `Coupon ${coupon.code} deleted successfully!`
+      );
+
+    } catch (error) {
+      setCouponError(
+        error.response?.data?.message ||
+        "Unable to delete coupon. Please try again."
+      );
+    } finally {
+      setDeletingCouponId(null);
     }
   };
 
@@ -142,7 +175,7 @@ function AdminDashboard() {
 
       <main className="admin-content">
 
-        {/* Page Heading */}
+        {/* Welcome */}
         <section className="admin-welcome">
           <div>
             <h1>Welcome back, Admin!</h1>
@@ -161,43 +194,28 @@ function AdminDashboard() {
 
           <div className="dashboard-cards">
 
-            {/* Total Coupons */}
             <div className="dashboard-card">
               <div className="dashboard-card-icon">
                 <TicketPercent />
               </div>
-
               <p>Total Coupons</p>
-
-              <h3>
-                {loadingStats ? "..." : totalCoupons}
-              </h3>
+              <h3>{loadingStats ? "..." : totalCoupons}</h3>
             </div>
 
-            {/* Active Coupons */}
             <div className="dashboard-card">
               <div className="dashboard-card-icon">
                 <Hotel />
               </div>
-
               <p>Active Coupons</p>
-
-              <h3>
-                {loadingStats ? "..." : activeCoupons}
-              </h3>
+              <h3>{loadingStats ? "..." : activeCoupons}</h3>
             </div>
 
-            {/* Total Redemptions */}
             <div className="dashboard-card">
               <div className="dashboard-card-icon">
                 <Users />
               </div>
-
               <p>Total Redemptions</p>
-
-              <h3>
-                {loadingStats ? "..." : totalRedemptions}
-              </h3>
+              <h3>{loadingStats ? "..." : totalRedemptions}</h3>
             </div>
 
           </div>
@@ -207,12 +225,9 @@ function AdminDashboard() {
         <section className="coupon-management">
 
           <div className="coupon-section-heading">
-
             <div>
               <h2>Coupon Management</h2>
-              <p>
-                Create and manage promotional offers.
-              </p>
+              <p>Create and manage promotional offers.</p>
             </div>
 
             <button
@@ -222,17 +237,15 @@ function AdminDashboard() {
               <Plus size={18} />
               Create Coupon
             </button>
-
           </div>
 
-          {/* Success Message */}
+          {/* Messages */}
           {couponMessage && (
             <p className="coupon-success-message">
               {couponMessage}
             </p>
           )}
 
-          {/* Error Message */}
           {couponError && (
             <p className="coupon-error-message">
               {couponError}
@@ -251,15 +264,12 @@ function AdminDashboard() {
               <div className="coupon-placeholder">
                 <TicketPercent size={35} />
                 <h3>No Coupons Found</h3>
-                <p>
-                  Create your first coupon to get started.
-                </p>
+                <p>Create your first coupon to get started.</p>
               </div>
 
             ) : (
 
               <table className="coupon-table">
-
                 <thead>
                   <tr>
                     <th>Coupon Code</th>
@@ -267,59 +277,75 @@ function AdminDashboard() {
                     <th>Usage</th>
                     <th>Expiry Date</th>
                     <th>Status</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {coupons.map((coupon) => (
+                  {coupons.map((coupon) => {
+                    const isUsed = Number(coupon.usage_count) > 0;
+                    const isDeleting =
+                      deletingCouponId === coupon.id;
 
-                    <tr key={coupon.id}>
+                    return (
+                      <tr key={coupon.id}>
 
-                      <td>
-                        <strong>{coupon.code}</strong>
-                      </td>
+                        <td>
+                          <strong>{coupon.code}</strong>
+                        </td>
 
-                      <td>
-                        {coupon.discount_type === "PERCENTAGE"
-                          ? `${Number(coupon.discount_value)}%`
-                          : `₹${Number(coupon.discount_value)}`}
-                      </td>
+                        <td>
+                          {coupon.discount_type === "PERCENTAGE"
+                            ? `${Number(coupon.discount_value)}%`
+                            : `₹${Number(coupon.discount_value)}`}
+                        </td>
 
-                      <td>
-                        {coupon.usage_count} / {coupon.usage_limit}
-                      </td>
+                        <td>
+                          {coupon.usage_count} / {coupon.usage_limit}
+                        </td>
 
-                      <td>
-                        {new Date(
-                          coupon.expiry_date
-                        ).toLocaleDateString("en-IN")}
-                      </td>
+                        <td>
+                          {new Date(
+                            coupon.expiry_date
+                          ).toLocaleDateString("en-IN")}
+                        </td>
 
-                      <td>
-                        <span
-                          className={`coupon-status ${
-                            coupon.is_active
-                              ? "status-active"
-                              : "status-inactive"
-                          }`}
-                        >
-                          {coupon.is_active
-                            ? "Active"
-                            : "Inactive"}
-                        </span>
-                      </td>
+                        <td>
+                          <span
+                            className={`coupon-status ${
+                              coupon.is_active
+                                ? "status-active"
+                                : "status-inactive"
+                            }`}
+                          >
+                            {coupon.is_active ? "Active" : "Inactive"}
+                          </span>
+                        </td>
 
-                    </tr>
+                        <td>
+                          <button
+                            className="coupon-delete-button"
+                            onClick={() => handleDeleteCoupon(coupon)}
+                            disabled={isUsed || isDeleting}
+                            title={
+                              isUsed
+                                ? "Used coupons cannot be deleted"
+                                : "Delete coupon"
+                            }
+                          >
+                            <Trash2 size={16} />
+                            {isDeleting ? "Deleting..." : "Delete"}
+                          </button>
+                        </td>
 
-                  ))}
+                      </tr>
+                    );
+                  })}
                 </tbody>
-
               </table>
 
             )}
-
           </div>
-
         </section>
 
       </main>
