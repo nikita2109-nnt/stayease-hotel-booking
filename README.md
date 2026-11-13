@@ -2,6 +2,12 @@
 
 A full-stack hotel booking portal built to simplify hotel reservations and provide a coupon-based discount experience. StayEase allows customers to explore hotels, check room availability, book rooms, apply discount coupons, and manage their reservations. It also provides a separate admin dashboard for coupon management.
 
+## Project Demonstration
+
+Watch the complete StayEase project demonstration video:
+
+[https://drive.google.com/file/d/1zqZ0EbsCko69-UqjM4esqT38kg4_rsp0/view?usp=drive_link]
+
 ## Features
 
 ### Customer Portal
